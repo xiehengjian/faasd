@@ -4,14 +4,6 @@
 
 set -e -x -o pipefail
 
-ping -c 1 "google.com"
-if [ $? -eq 0 ]; then
-    echo "使用国际网络"
-	export REGION="i18n"
-else
-  echo "使用国内网络"
-  export REGION="cn"
-fi
 
 export OWNER="xiehengjian"
 export REPO="faasd"
