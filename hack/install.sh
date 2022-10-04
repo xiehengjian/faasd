@@ -4,7 +4,16 @@
 
 set -e -x -o pipefail
 
-export OWNER="openfaas"
+ping -c 1 "google.com"
+if [ $? -eq 0 ]; then
+    echo "使用国际网络"
+	export REGION="i18n"
+else
+  echo "使用国内网络"
+  export REGION="cn"
+fi
+
+export OWNER="xiehengjian"
 export REPO="faasd"
 
 # On CentOS /usr/local/bin is not included in the PATH when using sudo. 
@@ -74,7 +83,11 @@ install_required_packages() {
 }
 
 install_arkade(){
-  curl -sLS https://get.arkade.dev | $SUDO sh
+  if [ $REGION = "i18n" ];then
+    curl -sLS https://raw.githubusercontent.com/xiehengjian/arkade/master/get.sh | $SUDO sh
+  else 
+    curl -sLS https://gitee.com/xiehengjian/arkade/raw/master/get.sh | $SUDO sh
+  fi 
   arkade --help
 }
 
@@ -87,48 +100,36 @@ install_containerd() {
   CONTAINERD_VER=1.6.8
   $SUDO systemctl unmask containerd || :
 
-  arch=$(uname -m)
-  if [ $arch == "armv7l" ]; then
-    $SUDO curl -fSLs "https://github.com/alexellis/containerd-arm/releases/download/v${CONTAINERD_VER}/containerd-${CONTAINERD_VER}-linux-armhf.tar.gz" --output "/tmp/containerd.tar.gz"
-    $SUDO tar -xvf /tmp/containerd.tar.gz -C /usr/local/bin/
-    $SUDO curl -fSLs https://raw.githubusercontent.com/containerd/containerd/v${CONTAINERD_VER}/containerd.service --output "/etc/systemd/system/containerd.service"
-    $SUDO systemctl enable containerd
-    $SUDO systemctl start containerd
-  else
-    $SUDO $ARKADE system install containerd --systemd --version v${CONTAINERD_VER}  --progress=false
-  fi
-  
+  $SUDO $ARKADE system install containerd --systemd --version v${CONTAINERD_VER}  --progress=false
+
   sleep 5
 }
 
 install_faasd() {
-  arch=$(uname -m)
-  case $arch in
-  x86_64 | amd64)
-    suffix=""
-    ;;
-  aarch64)
-    suffix=-arm64
-    ;;
-  armv7l)
-    suffix=-armhf
-    ;;
-  *)
-    echo "Unsupported architecture $arch"
-    exit 1
-    ;;
-  esac
-
-  $SUDO curl -fSLs "https://github.com/openfaas/faasd/releases/download/${version}/faasd${suffix}" --output "/usr/local/bin/faasd"
+  if [ $REGION = "i18n" ];then
+    $SUDO curl -fSLs "https://github.com/openfaas/faasd/releases/download/${version}/faasd" --output "/usr/local/bin/faasd"
+  else 
+    $SUDO curl -fSLs "https://gitee.com/xiehengjian/faasd/releases/download/${version}/faasd" --output "/usr/local/bin/faasd"
+  fi
+  
   $SUDO chmod a+x "/usr/local/bin/faasd"
 
   mkdir -p /tmp/faasd-${version}-installation/hack
   cd /tmp/faasd-${version}-installation
-  $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/docker-compose.yaml" --output "docker-compose.yaml"
-  $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/prometheus.yml" --output "prometheus.yml"
-  $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/resolv.conf" --output "resolv.conf"
-  $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/hack/faasd-provider.service" --output "hack/faasd-provider.service"
-  $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/hack/faasd.service" --output "hack/faasd.service"
+  if [ $REGION = "i18n" ];then
+    $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/docker-compose.yaml" --output "docker-compose.yaml"
+    $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/prometheus.yml" --output "prometheus.yml"
+    $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/resolv.conf" --output "resolv.conf"
+    $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/hack/faasd-provider.service" --output "hack/faasd-provider.service"
+    $SUDO curl -fSLs "https://raw.githubusercontent.com/openfaas/faasd/${version}/hack/faasd.service" --output "hack/faasd.service"
+  else
+    $SUDO curl -fSLs "https://gitee.com/xiehengjian/faasd/raw/${version}/docker-compose.yaml" --output "docker-compose.yaml"
+    $SUDO curl -fSLs "https://gitee.com/xiehengjian/faasd/raw/${version}/prometheus.yml" --output "prometheus.yml"
+    $SUDO curl -fSLs "https://gitee.com/xiehengjian/faasd/raw/${version}/resolv.conf" --output "resolv.conf"
+    $SUDO curl -fSLs "https://gitee.com/xiehengjian/faasd/raw/${version}/hack/faasd-provider.service" --output "hack/faasd-provider.service"
+    $SUDO curl -fSLs "https://gitee.com/xiehengjian/faasd/raw/${version}/hack/faasd.service" --output "hack/faasd.service"
+  fi
+  
   $SUDO /usr/local/bin/faasd install
 }
 
@@ -140,7 +141,12 @@ install_caddy() {
     # /usr/bin/caddy is specified in the upstream service file.
     $SUDO install -m 755 $HOME/.arkade/bin/caddy /usr/bin/caddy
 
-    $SUDO curl -fSLs https://raw.githubusercontent.com/caddyserver/dist/master/init/caddy.service --output /etc/systemd/system/caddy.service
+    if [ $REGION = "i18n" ];then
+        $SUDO curl -fSLs https://raw.githubusercontent.com/caddyserver/dist/master/init/caddy.service --output /etc/systemd/system/caddy.service
+    else 
+        $SUDO curl -fSLs https://gitee.com/xiehengjian/dist/master/raw/init/caddy.service --output /etc/systemd/system/caddy.service
+    fi
+    
 
     $SUDO mkdir -p /etc/caddy
     $SUDO mkdir -p /var/lib/caddy
